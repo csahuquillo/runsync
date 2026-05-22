@@ -1,0 +1,22 @@
+[Unit]
+Description=runsync — workout sync API
+After=network.target
+
+[Service]
+Type=simple
+User=runsync
+Group=runsync
+WorkingDirectory=/opt/runsync
+EnvironmentFile=/etc/runsync.env
+ExecStart=/opt/runsync/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=3
+
+# Endurecimiento básico
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

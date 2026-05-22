@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+
+# Local env / secrets
+.env
+.env.local
+.env.*.local
+runsync.env
+*.env
+!runsync.env.example
+
+# Session / token stores (mantener fuera del repo)
+sessions/
+*.session
+*.session-journal
+strava.json
+
+# Backups
+*.bak
+*.bak.*
+
+# iOS Shortcut (puede contener Bearer token embebido)
+*.shortcut
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs / dumps puntuales
+*.log
+/tmp/
