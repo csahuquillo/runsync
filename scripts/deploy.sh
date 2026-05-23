@@ -1,29 +1,38 @@
 #!/usr/bin/env bash
-# scripts/deploy.sh — sube uno o varios ficheros de server/app/ a la EC2 vía SSM,
-# valida sintaxis y reinicia el servicio runsync.
+# scripts/deploy.sh — upload one or more files from server/app/ to the EC2 host
+# via AWS Systems Manager (SSM), validate Python syntax, and restart runsync.
 #
-# Uso:
-#   scripts/deploy.sh main.py                       # un solo fichero
-#   scripts/deploy.sh main.py connectors.py         # varios
+# Usage:
+#   INSTANCE_ID=i-0123456789abcdef0 AWS_PROFILE=myprofile \
+#     scripts/deploy.sh main.py
 #
-# Requiere AWS_PROFILE=entrenandoany (region eu-west-3).
+#   INSTANCE_ID=i-0123456789abcdef0 AWS_PROFILE=myprofile \
+#     scripts/deploy.sh main.py connectors.py
+#
+# Required env:
+#   INSTANCE_ID  — EC2 instance ID where runsync lives.
+#   AWS_PROFILE  — local AWS profile with ssm:SendCommand on that instance.
+# Optional env:
+#   AWS_REGION   — defaults to eu-west-3.
+#
+# This script assumes /opt/runsync/app/ on the instance and a systemd unit
+# called runsync.service. Adjust if your install path is different.
 set -euo pipefail
 
-INSTANCE_ID="${INSTANCE_ID:-i-0b7f4135fd87a0a80}"
+: "${INSTANCE_ID:?INSTANCE_ID env var is required (e.g. i-0123456789abcdef0)}"
+: "${AWS_PROFILE:?AWS_PROFILE env var is required}"
 REGION="${AWS_REGION:-eu-west-3}"
-PROFILE="${AWS_PROFILE:-entrenandoany}"
 
 if [ $# -eq 0 ]; then
-  echo "uso: $0 <fichero.py> [<fichero2.py> ...]  (rutas relativas a server/app/)"
+  echo "usage: $0 <file.py> [<file2.py> ...]  (paths relative to server/app/)"
   exit 1
 fi
 
-# Construye el script remoto con todos los uploads + validación + restart.
 REMOTE="set -e"
 for f in "$@"; do
   src="server/app/$f"
   if [ ! -f "$src" ]; then
-    echo "ERROR: no existe $src"
+    echo "ERROR: file not found: $src"
     exit 2
   fi
   b64=$(base64 -i "$src" | tr -d '\n')
@@ -39,16 +48,16 @@ systemctl restart runsync.service
 sleep 2
 systemctl is-active runsync.service"
 
-CMD_ID=$(AWS_PROFILE=$PROFILE aws ssm send-command \
+CMD_ID=$(aws ssm send-command \
   --region "$REGION" \
   --instance-ids "$INSTANCE_ID" \
   --document-name AWS-RunShellScript \
   --parameters commands="[\"$(echo "$REMOTE" | sed 's/"/\\"/g')\"]" \
   --query "Command.CommandId" --output text)
 
-echo "CMD_ID=$CMD_ID — esperando..."
+echo "CMD_ID=$CMD_ID — waiting..."
 sleep 6
-AWS_PROFILE=$PROFILE aws ssm get-command-invocation \
+aws ssm get-command-invocation \
   --region "$REGION" \
   --command-id "$CMD_ID" \
   --instance-id "$INSTANCE_ID" \

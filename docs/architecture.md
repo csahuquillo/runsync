@@ -1,37 +1,39 @@
-# Arquitectura
+# Architecture
 
-## Componentes
+📖 **[Leer en español](architecture.es.md)**
 
-| Componente | Dónde vive | Stack |
+## Components
+
+| Component | Where it lives | Stack |
 |---|---|---|
-| Atajo iOS "Sincronizar Entreno" | iPhone | iOS Shortcuts |
-| Reverse proxy + TLS | EC2 | nginx + certbot |
-| API runsync | EC2 `/opt/runsync/` | FastAPI + uvicorn (systemd) |
-| Sesiones persistentes | EC2 `/opt/runsync/sessions/` | Strava OAuth tokens, Garmin tokenstore, Telethon session |
-| DNS | Ionos | `api.sahuquillo.org` → IP de la EC2 |
+| iOS Shortcut "Sincronizar Entreno" | iPhone | iOS Shortcuts |
+| Reverse proxy + TLS | VPS | nginx + Let's Encrypt |
+| runsync API | VPS `/opt/runsync/` | FastAPI + uvicorn (systemd) |
+| Persistent sessions | VPS `/opt/runsync/sessions/` | Strava OAuth tokens, Garmin tokenstore, Telethon session |
+| DNS | Your DNS provider | `api.your-domain.com` → server's IP |
 
-## Flujo de datos
+## Data flow
 
 ```
 ┌─────────────────────────┐
 │ iPhone — Bevel          │
-│ (exporta imagen entreno)│
+│ (exports workout image) │
 └──────────┬──────────────┘
-           │ Hoja de compartir
+           │ iOS share sheet
            ▼
 ┌─────────────────────────┐
-│ Atajo iOS               │
-│ - menú nombre entreno   │
-│ - menú zapatillas       │
-│ - menú tags (multi)     │
-│ - codifica imagen base64│
+│ iOS Shortcut            │
+│ - workout name menu     │
+│ - shoes menu            │
+│ - tags menu (multi)     │
+│ - encodes image base64  │
 └──────────┬──────────────┘
            │ POST JSON
            │ Authorization: Bearer ...
            ▼
 ┌─────────────────────────┐
 │ nginx (TLS)             │
-│ api.sahuquillo.org      │
+│ api.your-domain.com     │
 └──────────┬──────────────┘
            │ proxy_pass http://127.0.0.1:8000
            ▼
@@ -39,28 +41,28 @@
 │ FastAPI app.main:app                            │
 │                                                 │
 │ /sync-workout:                                  │
-│   1. _require_auth() — valida Bearer            │
-│   2. _parse_workout_body() — JSON o multipart   │
+│   1. _require_auth() — validates Bearer         │
+│   2. _parse_workout_body() — JSON or multipart  │
 │   3. connectors.strava_sync()                   │
 │   4. connectors.intervals_sync()                │
 │   5. connectors.garmin_sync()                   │
-│   6. asyncio.to_thread(                         │
+│   6. await asyncio.to_thread(                   │
 │        connectors.telegram_send_photo)          │
-│   7. devuelve dict con resultados por conector  │
+│   7. returns dict with per-connector results    │
 └─────────────────────────────────────────────────┘
 ```
 
-## Cómo cada conector identifica la actividad de hoy
+## How each connector finds today's activity
 
-| Plataforma | Estrategia | Endpoint |
+| Platform | Strategy | Endpoint |
 |---|---|---|
-| Strava | Lista las últimas 10 actividades del atleta, filtra `sport_type ∈ {Run, TrailRun}` cuya `start_date_local` empieza por la fecha local de hoy | `GET /athlete/activities?per_page=10` |
-| intervals.icu | Lista actividades desde "oldest=hoy" con `limit=10`, filtra `type == "Run"` | `GET /athlete/{id}/activities` |
-| Garmin Connect | `api.get_activities(0, 10)`, filtra `activityType.typeKey` que empiece por `running` y fecha hoy | wrapper de `garminconnect` |
+| Strava | List last 10 activities, filter `sport_type ∈ {Run, TrailRun}` whose `start_date_local` starts with today's local date | `GET /athlete/activities?per_page=10` |
+| intervals.icu | List activities with `oldest=today` and `limit=10`, filter `type == "Run"` | `GET /athlete/{id}/activities` |
+| Garmin Connect | `api.get_activities(0, 10)`, filter `activityType.typeKey` starting with `running` and today's date | `garminconnect` library |
 
-Si no encuentra actividad del día, devuelve `{"ok": false, "error": "no run found for today"}` y no toca nada — fallo seguro.
+If no activity is found for today, the connector returns `{"ok": false, "error": "no run found for today"}` and touches nothing — safe failure.
 
-## Modelo de gear
+## Gear model
 
 ```
 gear_map.py
@@ -70,26 +72,38 @@ gear_map.py
     └── "NB More v5" → "New Balance More 5"
 ```
 
-`gear_map.get(name)` resuelve directos o vía alias. Los IDs **no se inventan**: hay que sacarlos de cada plataforma:
+`gear_map.get(name)` resolves direct matches or aliases. The IDs are **not invented** — you have to grab them from each platform:
 
-- **Strava**: `https://www.strava.com/gear/<id>` (URL al gestionar la zapatilla).
-- **intervals.icu**: en `Settings → Equipment`, el ID está en la URL al editar.
-- **Garmin**: `garmin_cli list-gear` ejecutado en el servidor lo devuelve.
+- **Strava**: `https://www.strava.com/gear/<id>` (URL when managing the shoe).
+- **intervals.icu**: in `Settings → Equipment`, the ID is in the URL when editing.
+- **Garmin**: `garmin_cli list-gear` run on the server returns them.
 
-## Sesiones persistentes
+## Persistent sessions
 
-| Servicio | Fichero | Bootstrap |
+| Service | File | Bootstrap |
 |---|---|---|
-| Strava | `/opt/runsync/sessions/strava.json` | OAuth code via `/strava/callback`, refresh automático |
-| Garmin | `/opt/runsync/sessions/garmin/` (tokenstore) | `garmin_cli send-code` + `sign-in <code>` (MFA email) |
-| Telegram | `/opt/runsync/sessions/me.session` | `telegram_cli send-code <phone>` + `sign-in <code>` + opcional `password <2fa>` |
+| Strava | `/opt/runsync/sessions/strava.json` | OAuth code via `/strava/callback`, auto-refresh |
+| Garmin | `/opt/runsync/sessions/garmin/` (tokenstore) | `garmin_cli send-code` + `sign-in <code>` (email MFA) |
+| Telegram | `/opt/runsync/sessions/me.session` | `telegram_cli send-code <phone>` + `sign-in <code>` + optional `password <2fa>` |
 
-Todos persisten entre reinicios. Strava se auto-refresca; Garmin renueva tokens si caducan; Telethon mantiene la sesión activa indefinidamente salvo que se invalide manualmente.
+All persist across restarts. Strava auto-refreshes; Garmin renews tokens when they expire; Telethon keeps the session alive indefinitely unless manually invalidated.
 
-## Seguridad
+## Why JSON + base64 instead of multipart
 
-- Sin SSH al servidor — acceso solo vía AWS Systems Manager.
-- `/etc/runsync.env` con `mode 600` propiedad `runsync:runsync`. systemd lo carga como `EnvironmentFile`.
-- `RUNSYNC_TOKEN` único compartido entre servidor y Atajo.
-- Endpoints sin auth: `/health`, `/debug-form` (eco, no propaga), `/strava/callback` (validado por OAuth state), `/shortcut`.
-- No hay rate limiting hoy (deuda técnica).
+iOS Shortcuts has a known issue sending multipart/form-data: the variable picker for the `image` field doesn't reliably pick file variables, and when you use "Shortcut Input" directly, the request body becomes `application/x-www-form-urlencoded` with the image base64-stuffed as text (broken).
+
+The reliable workaround is:
+1. Add an "Obtener archivo de tipo public.image" step in the Shortcut to coerce the input to a real file.
+2. Add a "Codificar Base64" step to get a clean text representation.
+3. Send the whole payload as JSON with `image_b64` as a regular text field.
+
+The backend accepts both formats (JSON and multipart) — multipart is kept for compatibility and manual `curl` testing.
+
+## Security model
+
+- No SSH to the server in the recommended setup — access only via AWS Systems Manager (SSM).
+- `/etc/runsync.env` has `mode 600` owned by `runsync:runsync`. systemd loads it as `EnvironmentFile`.
+- Single `RUNSYNC_TOKEN` shared between server and Shortcut.
+- Unauthenticated endpoints: `/health`, `/debug-form` (echo, doesn't propagate), `/strava/callback` (validated by OAuth state), `/shortcut`.
+- No rate limiting on the API itself today (recommended to add at nginx level — see [deploy.md](deploy.md)).
+- Run as unprivileged `runsync` user under systemd with `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=full`, `ProtectHome=true`.
