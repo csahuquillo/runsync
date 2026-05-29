@@ -127,7 +127,7 @@ This project asks you to host a server that holds credentials for Strava, Garmin
 - **Never commit your real `.env`**, your Garmin tokenstore, your Strava tokens, or your Telethon session file. The `.gitignore` already excludes these patterns, but double-check.
 - **The exported `.shortcut` file contains your Bearer token embedded.** Don't share it. Each user rebuilds the Shortcut on their device.
 - **Strava gear IDs and Garmin UUIDs in `gear_map.py` are specific to your accounts.** The repo ships placeholders; replace them locally only.
-- **The backend exposes a small attack surface.** Endpoints without auth (`/health`, `/debug-form`, `/strava/callback`, `/shortcut`) only echo or implement OAuth; review them yourself before deploying publicly.
+- **The backend exposes a small attack surface.** Keep only what you need public in production: `/health` and `/sync-workout`; `/sync-workout` requires a Bearer token. `/shortcut` and `/debug-form` also require Bearer auth because they can expose sensitive Shortcut/debug data.
 - **Run as an unprivileged user** (`runsync`). The shipped systemd unit uses `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=full`, `ProtectHome=true`.
 - **No rate limiting is shipped.** If you're nervous, put runsync behind nginx or Cloudflare with basic rate limiting on `/sync-workout` (the deploy doc shows how).
 
@@ -152,10 +152,10 @@ If any of these worry you, host on a private network (VPN-only access) or skip t
 | Method | Path             | Auth        | Purpose |
 |--------|------------------|-------------|---------|
 | GET    | `/health`        | —           | Trivial liveness probe |
-| POST   | `/debug-form`    | —           | Echo. Accepts multipart or JSON; returns what it received (useful to debug the Shortcut) |
+| POST   | `/debug-form`    | Bearer      | Echo. Accepts multipart or JSON; returns what it received (useful to debug the Shortcut) |
 | POST   | `/sync-workout`  | Bearer      | The endpoint the Shortcut hits |
 | GET    | `/strava/callback` | —         | Strava OAuth callback |
-| GET    | `/shortcut`      | —           | Serves the `.shortcut` file if you uploaded one |
+| GET    | `/shortcut`      | Bearer      | Serves the `.shortcut` file if you uploaded one |
 
 ### `/sync-workout` request body
 

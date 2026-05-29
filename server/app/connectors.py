@@ -234,10 +234,15 @@ def garmin_sync(name: str, gear_canonical: str, tags: list[str]) -> dict:
         if tags:
             tag_text = " ".join(f"#{t}" for t in tags)
             try:
-                api.connectapi(
-                    f"/activity-service/activity/{activity_id}",
-                    method="PUT",
-                    json={"activityId": activity_id, "description": tag_text},
+                api.client.put(
+                    "connectapi",
+                    f"{api.garmin_connect_activity}/{activity_id}",
+                    json={
+                        "activityId": activity_id,
+                        "activityName": name,
+                        "description": tag_text,
+                    },
+                    api=True,
                 )
             except Exception as e:
                 # No crítico, log y seguir
@@ -309,4 +314,3 @@ def telegram_send_photo(image_bytes: bytes, image_filename: str | None, caption:
             tmp.unlink(missing_ok=True)
     except Exception as e:
         return {"ok": False, "platform": "telegram", "error": f"{type(e).__name__}: {e}"}
-

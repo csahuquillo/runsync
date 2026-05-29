@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hmac
 import json
 import logging
 import os
@@ -74,7 +75,8 @@ async def _validation_handler(request: Request, exc: RequestValidationError):
 
 
 @app.get("/shortcut")
-def get_shortcut() -> FileResponse:
+def get_shortcut(authorization: Optional[str] = Header(default=None)) -> FileResponse:
+    _require_auth(authorization)
     return FileResponse(
         "/opt/runsync/Sincronizar_Entreno.shortcut",
         media_type="application/octet-stream",
@@ -155,8 +157,12 @@ async def _parse_workout_body(request: Request) -> dict:
 
 
 @app.post("/debug-form")
-async def debug_form(request: Request) -> dict:
+async def debug_form(
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+) -> dict:
     """Endpoint de debug: acepta multipart o JSON y devuelve qué llegó."""
+    _require_auth(authorization)
     ctype = request.headers.get("content-type", "(none)")
     try:
         if (ctype or "").lower().startswith("application/json"):
@@ -194,7 +200,7 @@ def _require_auth(authorization: Optional[str]) -> None:
     if not API_TOKEN:
         raise HTTPException(status_code=500, detail="Server token not configured")
     expected = f"Bearer {API_TOKEN}"
-    if authorization != expected:
+    if not authorization or not hmac.compare_digest(authorization, expected):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 

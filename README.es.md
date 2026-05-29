@@ -98,7 +98,7 @@ Notificación final en el iPhone: `runsync ✅` o `runsync ❌` si algo falló.
 
 - **iOS Shortcuts** (no se commitea en el repo, ver [docs/atajo-setup.es.md](docs/atajo-setup.es.md) para reconstruirlo).
 - **Backend Python 3.12** con FastAPI/uvicorn, levantado por systemd.
-- **TLS** via nginx + Let's Encrypt.
+- **TLS** via reverse proxy + Let's Encrypt. En INVENT corre detras de Apache.
 - **Sesiones persistentes** por servicio: Strava OAuth se auto-refresca, Garmin guarda tokens, Telegram usa session de Telethon (no bot — mensajes como tu usuario).
 
 `*` Runalyze sin conector propio: se entera de los cambios cuando vuelve a importar de Garmin o Strava.
@@ -127,7 +127,7 @@ Este proyecto te pide montar un servidor con credenciales de Strava, Garmin, Tel
 - **Nunca commitees** tu `.env` real, el tokenstore de Garmin, los tokens de Strava ni el fichero de sesión de Telethon. El `.gitignore` ya los excluye, pero revisa.
 - **El fichero `.shortcut` exportado lleva tu Bearer token embebido.** No lo compartas. Cada usuario reconstruye el Atajo en su dispositivo.
 - **Los IDs de gear de Strava y los UUIDs de Garmin en `gear_map.py` son específicos de tu cuenta.** El repo trae placeholders; sustitúyelos localmente.
-- **El backend expone una superficie de ataque pequeña.** Los endpoints sin auth (`/health`, `/debug-form`, `/strava/callback`, `/shortcut`) solo hacen eco u OAuth; revísalos tú antes de desplegar público.
+- **El backend expone una superficie de ataque pequeña.** En produccion deja publico solo lo necesario: `/health` y `/sync-workout`; `/sync-workout` exige Bearer token. `/shortcut` y `/debug-form` tambien exigen Bearer en la app y en INVENT quedan bloqueados desde Apache.
 - **Corre como usuario sin privilegios** (`runsync`). El unit de systemd que viene usa `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=full`, `ProtectHome=true`.
 - **No hay rate limiting incluido.** Si te preocupa, pon runsync detrás de nginx o Cloudflare con rate limiting básico en `/sync-workout`.
 
@@ -147,15 +147,26 @@ Si alguna de estas cosas te incomoda, aloja en red privada (acceso solo por VPN)
 6. **Construye el Atajo en tu iPhone** siguiendo [docs/atajo-setup.es.md](docs/atajo-setup.es.md). ~40 min con la guía paso a paso.
 7. **Prueba** con `curl https://tu-dominio.com/health` desde otra máquina, y luego ejecuta el Atajo sobre una imagen de Bevel.
 
+## Despliegue actual en INVENT
+
+La instancia productiva centralizada esta en INVENT:
+
+- URL del atajo iOS: `https://invent.qualipharmagroup.com/runsync/sync-workout`
+- Health check: `https://invent.qualipharmagroup.com/runsync/health`
+- Servicio: `runsync.service`
+- Ruta servidor: `/opt/automations/runsync/current`
+- Certificado: Let's Encrypt para `invent.qualipharmagroup.com`
+- Proxy: Apache bajo `/runsync/`, exponiendo solo `health` y `sync-workout`.
+
 ## Endpoints
 
 | Método | Ruta             | Auth        | Para qué |
 |--------|------------------|-------------|----------|
 | GET    | `/health`        | —           | Probe trivial |
-| POST   | `/debug-form`    | —           | Eco. Acepta multipart o JSON, devuelve lo que recibe (útil para depurar el Atajo) |
+| POST   | `/debug-form`    | Bearer      | Eco. Acepta multipart o JSON, devuelve lo que recibe (útil para depurar el Atajo) |
 | POST   | `/sync-workout`  | Bearer      | El que dispara el Atajo |
 | GET    | `/strava/callback` | —         | OAuth callback de Strava |
-| GET    | `/shortcut`      | —           | Sirve el `.shortcut` si lo subes manualmente |
+| GET    | `/shortcut`      | Bearer      | Sirve el `.shortcut` si lo subes manualmente |
 
 ### Cuerpo de `/sync-workout`
 
