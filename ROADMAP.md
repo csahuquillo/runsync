@@ -21,6 +21,19 @@
 - [ ] **Quitar la pantalla "Mostrar Contenido de URL"** del Atajo: deja una notificación discreta de éxito/error en lugar del JSON.
 - [ ] Documentar el bootstrap completo de Telegram (`telegram_cli.py send-code/sign-in/password`).
 
+## Pendiente — Strava API cambios (efectivo 1 jun 2027)
+
+Anuncio Strava de 2026-06-01. No urgente (un año de margen) pero hay que hacerlo antes del 2027-06-01 o el conector deja de funcionar.
+
+- [ ] **Cambiar base URL Strava** de `https://www.strava.com/api/v3` → `https://www.api-v3.strava.com`. Solo afecta a la constante `_STRAVA_BASE` en `server/app/connectors.py:58`. El endpoint `oauth/token` (refresh) NO cambia, sigue en `strava.com`.
+- [ ] **Migrar `oauth/deauthorize` → `oauth/revoke`** si en algún momento se añade un flujo de revocación. Hoy no se usa ninguno; verificar antes de implementar.
+- [x] ~~Mover Bearer de form params a header~~ — ya va en header (`_strava_headers()` línea 95-96). Sin cambios necesarios.
+
+Notas:
+- Suscripción Strava Premium ya activa, así que el requisito de "subscription required for Standard Tier" (30 jun 2026) no afecta.
+- runsync es integración directa, no intermediary platform → no afectado por la restricción de 1 jun 2026.
+- No usamos endpoints de Clubs ni Segments Explore (deprecados 1 sep 2026) → no afectado.
+
 ## Pendiente — medio plazo
 
 - [ ] **WhatsApp** (mandar imagen a 1 grupo + 1 contacto). Opciones:
