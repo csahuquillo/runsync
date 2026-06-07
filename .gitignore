@@ -14,6 +14,9 @@ venv/
 runsync.env
 *.env
 !runsync.env.example
+# Config local del agent-hub / slash commands (instance ids, AWS profile…)
+env.local
+**/env.local
 
 # Session / token stores (mantener fuera del repo)
 sessions/
