@@ -88,18 +88,26 @@ ERR=$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INST
 if [ -n "${ERR:-}" ] && [ "$ERR" != "None" ]; then echo "--- stderr ---"; echo "$ERR"; fi
 ```
 
-## Salida
+## Salida — interpreta, no vuelques
 
-Resume lo recibido en una tabla clara, una fila por automatización:
+**No imprimas la salida cruda.** Interprétala y preséntala centrada en lo que
+está roto, no en lo que funciona:
 
-| Automatización | Servicio | Salud | Últimos errores |
-|---|---|---|---|
+1. **Titular** con el recuento, una línea. Ejemplos:
+   - `❌ 2 caídas · ✅ 13 funcionando`
+   - `✅ Todas funcionando (15)` cuando no hay ningún fallo.
 
-- **Servicio**: `active` / `failed` / `inactive` (de systemd / `automation-status`).
-- **Salud**: si la automatización expone health (runsync → `/runsync/health`),
-  refléjalo; si no, déjalo en `—`.
-- **Últimos errores**: la línea más relevante de los logs, o `—` si está limpio.
+2. **Detalla SOLO las que NO funcionan.** Por cada automatización caída o
+   degradada, un bloque corto con:
+   - **Nombre**.
+   - **Qué le pasa**: servicio `failed`/`inactive`, health KO, o errores
+     recientes en los logs.
+   - **La línea de log más relevante** que explique el fallo (no todo el log).
 
-Marca con ✅ las que estén `active` y sanas, con ❌ las `failed`, y con ⚠️ las
-que estén activas pero con errores recientes en los logs. Si `automation-status`
-no estaba disponible en el servidor, indícalo y usa lo que devuelva systemd.
+3. **De las que funcionan, no digas nada** más allá de contarlas en el titular.
+   No las enumeres ni des detalle de ellas.
+
+Criterio de "no funcionando": el servicio no está `active`, su health responde
+mal, o los logs muestran errores recientes. Si todo está sano, basta el titular
+en verde. Si una automatización concreta se pasó como argumento (`$ARGUMENTS`),
+muéstrala siempre con su detalle aunque esté sana.
