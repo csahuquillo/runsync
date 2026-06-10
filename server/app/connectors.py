@@ -118,8 +118,28 @@ def strava_sync(name: str, gear_canonical: str, tags: list[str]) -> dict:
         return {"ok": False, "platform": "strava", "error": "no run found for today"}
 
     body: dict[str, Any] = {"name": name, "gear_id": g.get("strava_id")}
-    if tags:
-        body["description"] = " ".join(f"#{t}" for t in tags)
+    # Strava expone como campos nativos algunas etiquetas; el resto queda como hashtags
+    # en description. workout_type para Run: 1=Carrera, 2=Tirada larga, 3=Entrenamiento.
+    STRAVA_WORKOUT_TYPE = {
+        "carrera": 1, "race": 1,
+        "tiradalarga": 2, "longrun": 2,
+        "entrenamiento": 3, "workout": 3,
+    }
+    STRAVA_BOOL_FIELDS = {
+        "cinta": "trainer", "treadmill": "trainer",
+        "desplazamiento": "commute", "commute": "commute",
+    }
+    leftover: list[str] = []
+    for t in tags:
+        k = t.lower().replace(" ", "").replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+        if k in STRAVA_WORKOUT_TYPE:
+            body["workout_type"] = STRAVA_WORKOUT_TYPE[k]
+        elif k in STRAVA_BOOL_FIELDS:
+            body[STRAVA_BOOL_FIELDS[k]] = True
+        else:
+            leftover.append(t)
+    if leftover:
+        body["description"] = " ".join(f"#{t}" for t in leftover)
     r = requests.put(f"{_STRAVA_BASE}/activities/{act['id']}",
                      headers={**_strava_headers(), "Content-Type": "application/json"},
                      json=body, timeout=15)
@@ -166,8 +186,9 @@ def intervals_sync(name: str, gear_canonical: str, tags: list[str]) -> dict:
     # intervals.icu: el campo es "gear" (string id), no "gear_id"
     body: dict[str, Any] = {"name": name, "gear": {"id": g.get("intervals_id")}}
     if tags:
-        # intervals.icu maneja tags como string separado por comas (formato no estricto)
-        body["description"] = " ".join("#" + t for t in tags)
+        # tags es un Set<String> nativo en intervals.icu; mandarlos como lista
+        # los pinta como etiquetas reales, no como hashtags en la descripción.
+        body["tags"] = list(tags)
     r = requests.put(f"{_INTERVALS_BASE}/activity/{act['id']}",
                      auth=_intervals_auth(),
                      headers={"Content-Type": "application/json"},
