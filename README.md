@@ -27,7 +27,7 @@ A single iOS Shortcut + a tiny Python backend. From the share sheet on the Bevel
 2. Pick the **workout name** (menu with your common ones + "other → type").
 3. Pick the **shoes** (menu with your active pairs).
 4. Pick the **tags** (multi-select: Z2, Base, Tempo…).
-5. Done → the backend renames today's activity on the three platforms, sets the correct gear, puts hashtags in the description, and sends the photo + caption to whatever Telegram chats you want.
+5. Done → the backend renames today's activity on the three platforms, sets the correct gear, pushes tags to each platform's native field (intervals.icu: `tags`; Strava: `workout_type`/`trainer`/`commute` + leftover hashtags in description; Garmin: hashtags in description), and sends the photo + caption to whatever Telegram chats you want.
 
 Total: ~10 seconds.
 
