@@ -27,7 +27,7 @@ Un Atajo de iOS conectado a una mini-API en Python. Desde la hoja de compartir s
 2. Eliges el **nombre del entreno** (menú con tus opciones habituales + "otro").
 3. Eliges las **zapatillas** (menú con tus pares activos).
 4. Eliges los **tags** (multi-selección: Z2, Base, Tempo…).
-5. Tap final → el backend renombra la actividad de hoy en las tres plataformas, le pone el gear correcto, los hashtags en la descripción, y envía la foto + caption a los chats de Telegram que quieras.
+5. Tap final → el backend renombra la actividad de hoy en las tres plataformas, le pone el gear correcto, manda los tags al campo nativo de cada plataforma (intervals.icu: `tags`; Strava: `workout_type`/`trainer`/`commute` + hashtags residuales en description; Garmin: hashtags en description), y envía la foto + caption a los chats de Telegram que quieras.
 
 Total: ~10 segundos.
 

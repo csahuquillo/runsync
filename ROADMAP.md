@@ -4,8 +4,8 @@
 
 - [x] Endpoint `/sync-workout` con auth Bearer.
 - [x] Parsing dual: multipart + JSON con `image_b64`.
-- [x] Conector Strava (rename + gear + descripción con #tags).
-- [x] Conector intervals.icu (rename + `gear: {id}` + descripción con #tags).
+- [x] Conector Strava (rename + gear + `workout_type`/`trainer`/`commute` desde tags conocidos + resto como hashtags en description). Default `workout_type=3` (Entrenamiento).
+- [x] Conector intervals.icu (rename + `gear: {id}` + tags como lista nativa en el campo `tags`, no en description).
 - [x] Conector Garmin Connect (rename + gear + descripción con #tags) con MFA bootstrap.
 - [x] Conector Telegram (Telethon como usuario) con soporte multi-chat (CSV en `TELEGRAM_CHAT_ID`).
 - [x] Telegram corre en `asyncio.to_thread` para no chocar con el event loop de FastAPI.
