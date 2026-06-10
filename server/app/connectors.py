@@ -120,6 +120,8 @@ def strava_sync(name: str, gear_canonical: str, tags: list[str]) -> dict:
     body: dict[str, Any] = {"name": name, "gear_id": g.get("strava_id")}
     # Strava expone como campos nativos algunas etiquetas; el resto queda como hashtags
     # en description. workout_type para Run: 1=Carrera, 2=Tirada larga, 3=Entrenamiento.
+    # Por defecto marcamos toda carrera como Entrenamiento (3); si los tags incluyen
+    # tirada larga sube a 2; si incluyen carrera/race sube a 1 (gana sobre las otras).
     STRAVA_WORKOUT_TYPE = {
         "carrera": 1, "race": 1,
         "tiradalarga": 2, "longrun": 2,
@@ -129,15 +131,20 @@ def strava_sync(name: str, gear_canonical: str, tags: list[str]) -> dict:
         "cinta": "trainer", "treadmill": "trainer",
         "desplazamiento": "commute", "commute": "commute",
     }
+    workout_type: int = 3  # default: Entrenamiento
     leftover: list[str] = []
     for t in tags:
         k = t.lower().replace(" ", "").replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
         if k in STRAVA_WORKOUT_TYPE:
-            body["workout_type"] = STRAVA_WORKOUT_TYPE[k]
+            wt = STRAVA_WORKOUT_TYPE[k]
+            # Race (1) gana sobre Long run (2) gana sobre default. Entrenamiento (3) ya es default.
+            if wt == 1 or (wt == 2 and workout_type != 1):
+                workout_type = wt
         elif k in STRAVA_BOOL_FIELDS:
             body[STRAVA_BOOL_FIELDS[k]] = True
         else:
             leftover.append(t)
+    body["workout_type"] = workout_type
     if leftover:
         body["description"] = " ".join(f"#{t}" for t in leftover)
     r = requests.put(f"{_STRAVA_BASE}/activities/{act['id']}",
