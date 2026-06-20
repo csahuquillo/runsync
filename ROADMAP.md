@@ -19,7 +19,7 @@
 - [ ] **Cambiar default `skip_telegram` a `false`** una vez verificado el envío real a los 2 grupos.
 - [ ] **Verificar visualmente en intervals.icu** que el gear+descripción aplicados están bien (no solo HTTP 200).
 - [ ] **Quitar la pantalla "Mostrar Contenido de URL"** del Atajo: deja una notificación discreta de éxito/error en lugar del JSON.
-- [ ] Documentar el bootstrap completo de Telegram (`telegram_cli.py send-code/sign-in/password`).
+- [x] Documentar el bootstrap completo de Telegram (`telegram_cli.py send-code/sign-in/password`) — `docs/deploy.md` / `docs/deploy.es.md` §5.3 (máquina de estados `_pending.json`, `find-chat`, prueba `send-photo`).
 
 ## Pendiente — Strava API cambios (efectivo 1 jun 2027)
 

@@ -208,37 +208,70 @@ sudo -u runsync /opt/runsync/venv/bin/python -m app.garmin_cli list-gear
 
 ### 5.3 Sesión de Telegram
 
+El bootstrap de Telegram está partido en comandos separados a propósito: cada
+llamada SSM es no-interactiva, así que el flujo de login no puede pararse a pedir
+el código a mitad de ejecución. `send-code` guarda el `phone_code_hash` en
+`/opt/runsync/sessions/_pending.json` (chmod 600) y `sign-in` lo consume. La
+sesión de Telethon en sí queda en `/opt/runsync/sessions/me.session`.
+
 ```bash
-# 1. Pide a Telegram el código (teléfono en formato +paísnúmero)
+# 1. Pide un código de login (teléfono en formato +paísnúmero).
+#    Escribe sessions/_pending.json y envía un código a tu app de Telegram.
 sudo -u runsync /opt/runsync/venv/bin/python -m app.telegram_cli send-code +34600111222
 
-# 2. Llega un código por la app de Telegram — pégalo
+# 2. Llega un código DENTRO de la app de Telegram (no por SMS) — pégalo.
 sudo -u runsync /opt/runsync/venv/bin/python -m app.telegram_cli sign-in 12345
 
-# 3. Si tienes 2FA activado en Telegram:
+# 3. SOLO si el paso 2 imprimió "NEEDS_2FA" (tienes verificación en dos pasos):
 sudo -u runsync /opt/runsync/venv/bin/python -m app.telegram_cli password 'tu-2fa'
 
-# 4. Verifica
+# 4. Verifica que la sesión está autenticada:
 sudo -u runsync /opt/runsync/venv/bin/python -m app.telegram_cli whoami
+# imprime {"id": ..., "first_name": ..., "username": ..., "phone": ...}
+# "NO_SESSION" significa que los pasos anteriores no se completaron — empieza de nuevo desde send-code.
 ```
 
-Lista grupos/canales en los que estás:
+> El código que manda Telegram caduca rápido. Si `sign-in` falla por código
+> caducado o inválido, repite `send-code` (sobrescribe `_pending.json`) e
+> inténtalo otra vez con el código nuevo.
+
+#### Localiza los chat IDs
+
+Usa el comando integrado `find-chat` para localizar los grupos/canales a los que
+quieres publicar (coincidencia por subcadena del título, sin distinguir mayúsculas):
+
 ```bash
-sudo -u runsync /opt/runsync/venv/bin/python server/scripts/list_dialogs.py
+sudo -u runsync /opt/runsync/venv/bin/python -m app.telegram_cli find-chat "Mi grupo de running"
 ```
 
-Salida:
-```
-supergroup    -1001234567890  Mi grupo de running
-group           -432167890    Amigos
-...
+Devuelve JSON con las coincidencias:
+```json
+[
+  {"id": -1001234567890, "title": "Mi grupo de running", "type": "Channel"},
+  {"id": -432167890, "title": "Amigos", "type": "Chat"}
+]
 ```
 
-Mete los IDs en `TELEGRAM_CHAT_ID` separados por coma:
+> Como alternativa, `server/scripts/list_dialogs.py` vuelca *todos* los
+> grupos/canales en una tabla (útil si no recuerdas el nombre exacto). Es un
+> script de diagnóstico, no forma parte del runtime, así que trata su salida como
+> best-effort.
+
+Mete los IDs que quieras en `TELEGRAM_CHAT_ID` separados por coma:
 ```bash
 sudo nano /etc/runsync.env
 # TELEGRAM_CHAT_ID=-1001234567890,-432167890
 sudo systemctl restart runsync.service
+```
+
+#### Confirma end-to-end (opcional pero recomendado)
+
+Antes de cambiar `skip_telegram` a `false`, envía una foto de prueba real a un
+chat para comprobar que todo el camino funciona:
+```bash
+sudo -u runsync /opt/runsync/venv/bin/python -m app.telegram_cli \
+  send-photo -1001234567890 /ruta/a/prueba.jpg "prueba runsync"
+# OK: mensaje <id> enviado a -1001234567890
 ```
 
 ### 5.4 Reemplaza los placeholders del gear
